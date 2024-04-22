@@ -6,6 +6,8 @@ const CHERRYPICK_EMPTY =
   'The previous cherry-pick is now empty, possibly due to conflict resolution.'
 const NOTHING_TO_COMMIT = 'nothing to commit, working tree clean'
 
+const FETCH_DEPTH_MARGIN = 10
+
 export enum WorkingBaseType {
   Branch = 'branch',
   Commit = 'commit'
@@ -31,11 +33,13 @@ export async function getWorkingBaseAndType(
 export async function tryFetch(
   git: GitCommandManager,
   remote: string,
-  branch: string
+  branch: string,
+  depth: number
 ): Promise<boolean> {
   try {
     await git.fetch([`${branch}:refs/remotes/${remote}/${branch}`], remote, [
-      '--force'
+      '--force',
+      `--depth=${depth}`
     ])
     return true
   } catch {
@@ -173,24 +177,12 @@ export async function createOrUpdateBranch(
   // Stash any uncommitted tracked and untracked changes
   const stashed = await git.stashPush(['--include-untracked'])
 
-  // Perform fetch and reset the working base
+  // Reset the working base
   // Commits made during the workflow will be removed
   if (workingBaseType == WorkingBaseType.Branch) {
     core.info(`Resetting working base branch '${workingBase}'`)
-    if (branchRemoteName == 'fork') {
-      // If pushing to a fork we must fetch with 'unshallow' to avoid the following error on git push
-      // ! [remote rejected] HEAD -> tests/push-branch-to-fork (shallow update not allowed)
-      await git.fetch(
-        [`${workingBase}:${workingBase}`],
-        baseRemote,
-        ['--force'],
-        true
-      )
-    } else {
-      // If the remote is 'origin' we can git reset
-      await git.checkout(workingBase)
-      await git.exec(['reset', '--hard', `${baseRemote}/${workingBase}`])
-    }
+    await git.checkout(workingBase)
+    await git.exec(['reset', '--hard', `${baseRemote}/${workingBase}`])
   }
 
   // If the working base is not the base, rebase the temp branch commits
@@ -199,8 +191,13 @@ export async function createOrUpdateBranch(
     core.info(
       `Rebasing commits made to ${workingBaseType} '${workingBase}' on to base branch '${base}'`
     )
+    const fetchArgs = ['--force']
+    if (branchRemoteName != 'fork') {
+      // If pushing to a fork we cannot shallow fetch otherwise the 'shallow update not allowed' error occurs
+      fetchArgs.push('--depth=1')
+    }
     // Checkout the actual base
-    await git.fetch([`${base}:${base}`], baseRemote, ['--force'])
+    await git.fetch([`${base}:${base}`], baseRemote, fetchArgs)
     await git.checkout(base)
     // Cherrypick commits from the temporary branch starting from the working base
     const commits = await git.revList(
@@ -219,11 +216,18 @@ export async function createOrUpdateBranch(
     // Reset the temp branch to the working index
     await git.checkout(tempBranch, 'HEAD')
     // Reset the base
-    await git.fetch([`${base}:${base}`], baseRemote, ['--force'])
+    await git.fetch([`${base}:${base}`], baseRemote, fetchArgs)
   }
 
+  // Determine the fetch depth for the pull request branch (best effort)
+  const tempBranchCommitsAhead = await commitsAhead(git, base, tempBranch)
+  const fetchDepth =
+    tempBranchCommitsAhead > 0
+      ? tempBranchCommitsAhead + FETCH_DEPTH_MARGIN
+      : FETCH_DEPTH_MARGIN
+
   // Try to fetch the pull request branch
-  if (!(await tryFetch(git, branchRemoteName, branch))) {
+  if (!(await tryFetch(git, branchRemoteName, branch, fetchDepth))) {
     // The pull request branch does not exist
     core.info(`Pull request branch '${branch}' does not exist yet.`)
     // Create the pull request branch
@@ -257,7 +261,6 @@ export async function createOrUpdateBranch(
     //   temp branch. This catches a case where the base branch has been force pushed to
     //   a new commit.
     // For changes on base this reset is equivalent to a rebase of the pull request branch.
-    const tempBranchCommitsAhead = await commitsAhead(git, base, tempBranch)
     const branchCommitsAhead = await commitsAhead(git, base, branch)
     if (
       (await git.hasDiff([`${branch}..${tempBranch}`])) ||

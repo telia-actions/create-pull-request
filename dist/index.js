@@ -44,6 +44,7 @@ const core = __importStar(__nccwpck_require__(2186));
 const uuid_1 = __nccwpck_require__(5840);
 const CHERRYPICK_EMPTY = 'The previous cherry-pick is now empty, possibly due to conflict resolution.';
 const NOTHING_TO_COMMIT = 'nothing to commit, working tree clean';
+const FETCH_DEPTH_MARGIN = 10;
 var WorkingBaseType;
 (function (WorkingBaseType) {
     WorkingBaseType["Branch"] = "branch";
@@ -64,11 +65,12 @@ function getWorkingBaseAndType(git) {
     });
 }
 exports.getWorkingBaseAndType = getWorkingBaseAndType;
-function tryFetch(git, remote, branch) {
+function tryFetch(git, remote, branch, depth) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
             yield git.fetch([`${branch}:refs/remotes/${remote}/${branch}`], remote, [
-                '--force'
+                '--force',
+                `--depth=${depth}`
             ]);
             return true;
         }
@@ -164,27 +166,24 @@ function createOrUpdateBranch(git, commitMessage, base, branch, branchRemoteName
         }
         // Stash any uncommitted tracked and untracked changes
         const stashed = yield git.stashPush(['--include-untracked']);
-        // Perform fetch and reset the working base
+        // Reset the working base
         // Commits made during the workflow will be removed
         if (workingBaseType == WorkingBaseType.Branch) {
             core.info(`Resetting working base branch '${workingBase}'`);
-            if (branchRemoteName == 'fork') {
-                // If pushing to a fork we must fetch with 'unshallow' to avoid the following error on git push
-                // ! [remote rejected] HEAD -> tests/push-branch-to-fork (shallow update not allowed)
-                yield git.fetch([`${workingBase}:${workingBase}`], baseRemote, ['--force'], true);
-            }
-            else {
-                // If the remote is 'origin' we can git reset
-                yield git.checkout(workingBase);
-                yield git.exec(['reset', '--hard', `${baseRemote}/${workingBase}`]);
-            }
+            yield git.checkout(workingBase);
+            yield git.exec(['reset', '--hard', `${baseRemote}/${workingBase}`]);
         }
         // If the working base is not the base, rebase the temp branch commits
         // This will also be true if the working base type is a commit
         if (workingBase != base) {
             core.info(`Rebasing commits made to ${workingBaseType} '${workingBase}' on to base branch '${base}'`);
+            const fetchArgs = ['--force'];
+            if (branchRemoteName != 'fork') {
+                // If pushing to a fork we cannot shallow fetch otherwise the 'shallow update not allowed' error occurs
+                fetchArgs.push('--depth=1');
+            }
             // Checkout the actual base
-            yield git.fetch([`${base}:${base}`], baseRemote, ['--force']);
+            yield git.fetch([`${base}:${base}`], baseRemote, fetchArgs);
             yield git.checkout(base);
             // Cherrypick commits from the temporary branch starting from the working base
             const commits = yield git.revList([`${workingBase}..${tempBranch}`, '.'], ['--reverse']);
@@ -197,10 +196,15 @@ function createOrUpdateBranch(git, commitMessage, base, branch, branchRemoteName
             // Reset the temp branch to the working index
             yield git.checkout(tempBranch, 'HEAD');
             // Reset the base
-            yield git.fetch([`${base}:${base}`], baseRemote, ['--force']);
+            yield git.fetch([`${base}:${base}`], baseRemote, fetchArgs);
         }
+        // Determine the fetch depth for the pull request branch (best effort)
+        const tempBranchCommitsAhead = yield commitsAhead(git, base, tempBranch);
+        const fetchDepth = tempBranchCommitsAhead > 0
+            ? tempBranchCommitsAhead + FETCH_DEPTH_MARGIN
+            : FETCH_DEPTH_MARGIN;
         // Try to fetch the pull request branch
-        if (!(yield tryFetch(git, branchRemoteName, branch))) {
+        if (!(yield tryFetch(git, branchRemoteName, branch, fetchDepth))) {
             // The pull request branch does not exist
             core.info(`Pull request branch '${branch}' does not exist yet.`);
             // Create the pull request branch
@@ -231,7 +235,6 @@ function createOrUpdateBranch(git, commitMessage, base, branch, branchRemoteName
             //   temp branch. This catches a case where the base branch has been force pushed to
             //   a new commit.
             // For changes on base this reset is equivalent to a rebase of the pull request branch.
-            const tempBranchCommitsAhead = yield commitsAhead(git, base, tempBranch);
             const branchCommitsAhead = yield commitsAhead(git, base, branch);
             if ((yield git.hasDiff([`${branch}..${tempBranch}`])) ||
                 branchCommitsAhead != tempBranchCommitsAhead ||
@@ -1109,7 +1112,6 @@ class GitHubHelper {
         return __awaiter(this, void 0, void 0, function* () {
             const [headOwner] = headRepository.split('/');
             const headBranch = `${headOwner}:${inputs.branch}`;
-            const headBranchFull = `${headRepository}:${inputs.branch}`;
             // Try to create the pull request
             try {
                 core.info(`Attempting creation of pull request`);
@@ -1131,7 +1133,7 @@ class GitHubHelper {
             }
             // Update the pull request that exists for this branch and base
             core.info(`Fetching existing pull request`);
-            const { data: pulls } = yield this.octokit.rest.pulls.list(Object.assign(Object.assign({}, this.parseRepository(baseRepository)), { state: 'open', head: headBranchFull, base: inputs.base }));
+            const { data: pulls } = yield this.octokit.rest.pulls.list(Object.assign(Object.assign({}, this.parseRepository(baseRepository)), { state: 'open', head: headBranch, base: inputs.base }));
             core.info(`Attempting update of pull request`);
             const { data: pull } = yield this.octokit.rest.pulls.update(Object.assign(Object.assign({}, this.parseRepository(baseRepository)), { pull_number: pulls[0].number, title: inputs.title, body: inputs.body }));
             core.info(`Updated pull request #${pull.number} (${headBranch} => ${inputs.base})`);
