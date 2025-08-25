@@ -22,7 +22,7 @@
   - [Dynamic configuration using variables](#dynamic-configuration-using-variables)
   - [Using a markdown template](#using-a-markdown-template)
   - [Debugging GitHub Actions](#debugging-github-actions)
-
+  - [Show an annotation message for a created pull request](#show-an-annotation-message-for-a-created-pull-request)
 
 ## Use case: Create a pull request to update X on push
 
@@ -49,7 +49,7 @@ jobs:
         run: |
           git log --format='%aN <%aE>%n%cN <%cE>' | sort -u > AUTHORS
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v7
         with:
           commit-message: update authors
           title: Update AUTHORS
@@ -81,7 +81,7 @@ jobs:
           git fetch origin main:main
           git reset --hard main
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v7
         with:
           branch: production-promotion
 ```
@@ -116,7 +116,7 @@ jobs:
           ./git-chglog -o CHANGELOG.md
           rm git-chglog
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v7
         with:
           commit-message: update changelog
           title: Update Changelog
@@ -153,7 +153,7 @@ jobs:
           npx -p npm-check-updates ncu -u
           npm install
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v7
         with:
             token: ${{ secrets.PAT }}
             commit-message: Update dependencies
@@ -214,7 +214,7 @@ jobs:
       - name: Perform dependency resolution and write new lockfiles
         run: ./gradlew dependencies --write-locks
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v7
         with:
             token: ${{ secrets.PAT }}
             commit-message: Update dependencies
@@ -249,7 +249,7 @@ jobs:
           cargo update
           cargo upgrade --to-lockfile
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v7
         with:
             token: ${{ secrets.PAT }}
             commit-message: Update dependencies
@@ -307,7 +307,7 @@ jobs:
           # Update current release
           echo ${{ steps.swagger-ui.outputs.release_tag }} > swagger-ui.version
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v7
         with:
           commit-message: Update swagger-ui to ${{ steps.swagger-ui.outputs.release_tag }}
           title: Update SwaggerUI to ${{ steps.swagger-ui.outputs.release_tag }}
@@ -324,7 +324,7 @@ jobs:
 
 ### Keep a fork up-to-date with its upstream
 
-This example is designed to be run in a seperate repository from the fork repository itself.
+This example is designed to be run in a separate repository from the fork repository itself.
 The aim of this is to prevent committing anything to the fork's default branch would cause it to differ from the upstream.
 
 In the following example workflow, `owner/repo` is the upstream repository and `fork-owner/repo` is the fork. It assumes the default branch of the upstream repository is called `main`.
@@ -351,7 +351,7 @@ jobs:
           git fetch upstream main:upstream-main
           git reset --hard upstream-main
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.PAT }}
           branch: upstream-changes
@@ -384,7 +384,7 @@ jobs:
             --domains quotes.toscrape.com \
             http://quotes.toscrape.com/
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v7
         with:
           commit-message: update local website copy
           title: Automated Updates to Local Website Copy
@@ -481,7 +481,7 @@ jobs:
           echo "branch-name=$branch-name" >> $GITHUB_OUTPUT
       - name: Create Pull Request
         if: steps.autopep8.outputs.exit-code == 2
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v7
         with:
           commit-message: autopep8 action fixes
           title: Fixes by autopep8 action
@@ -540,7 +540,7 @@ Note that the step where output variables are defined must have an id.
           echo "pr_title=$pr_title" >> $GITHUB_OUTPUT
           echo "pr_body=$pr_body" >> $GITHUB_OUTPUT
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v7
         with:
           title: ${{ steps.vars.outputs.pr_title }}
           body: ${{ steps.vars.outputs.pr_body }}
@@ -566,7 +566,7 @@ The template is rendered using the [render-template](https://github.com/chuhlomi
             bar: that
 
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v7
         with:
           body: ${{ steps.template.outputs.result }}
 ```
@@ -611,4 +611,31 @@ To enable step debug logging set the secret `ACTIONS_STEP_DEBUG` to `true` in th
         env:
           MATRIX_CONTEXT: ${{ toJson(matrix) }}
         run: echo "$MATRIX_CONTEXT"
+```
+
+### Show an annotation message for a created pull request
+
+Showing an annotation message for a created or updated pull request allows you to confirm the pull request easily, such as by visiting the link. This can be achieved by adding a step that uses the [`notice` workflow command](https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/workflow-commands-for-github-actions?tool=bash#setting-a-notice-message).
+
+For example:
+
+```yml
+- name: Create Pull Request
+  id: cpr
+  uses: peter-evans/create-pull-request@v7
+
+- name: Show message for created Pull Request
+  if: ${{ steps.cpr.outputs.pull-request-url && steps.cpr.outputs.pull-request-operation != 'none' }}
+  shell: bash
+  env:
+    PR_URL: ${{ steps.cpr.outputs.pull-request-url }}
+    PR_OPERATION: ${{ steps.cpr.outputs.pull-request-operation }}
+  run: |
+    echo "::notice::${PR_URL} was ${PR_OPERATION}."
+```
+
+In this example, when a pull request is created, you will be able to see the following message on an action run page (e.g., `/actions/runs/12812393039`):
+
+```
+https://github.com/peter-evans/create-pull-request/pull/1 was created.
 ```

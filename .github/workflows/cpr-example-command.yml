@@ -6,7 +6,7 @@ jobs:
   createPullRequest:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Make changes to pull request
         run: date +%s > report.txt
@@ -29,8 +29,8 @@ jobs:
           labels: |
             report
             automated pr
-          assignees: peter-evans
-          reviewers: peter-evans
+          assignees: retepsnave
+          reviewers: retepsnave
           milestone: 1
           draft: false
           branch: example-patches
