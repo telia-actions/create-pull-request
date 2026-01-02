@@ -42,14 +42,14 @@ jobs:
   updateAuthors:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - name: Update AUTHORS
         run: |
           git log --format='%aN <%aE>%n%cN <%cE>' | sort -u > AUTHORS
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           commit-message: update authors
           title: Update AUTHORS
@@ -73,7 +73,7 @@ jobs:
   productionPromotion:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: production
       - name: Reset promotion branch
@@ -81,7 +81,7 @@ jobs:
           git fetch origin main:main
           git reset --hard main
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           branch: production-promotion
 ```
@@ -106,7 +106,7 @@ jobs:
   updateChangelog:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - name: Update Changelog
@@ -116,7 +116,7 @@ jobs:
           ./git-chglog -o CHANGELOG.md
           rm git-chglog
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           commit-message: update changelog
           title: Update Changelog
@@ -144,7 +144,7 @@ jobs:
   update-dep:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-node@v3
         with:
           node-version: '16.x'
@@ -153,7 +153,7 @@ jobs:
           npx -p npm-check-updates ncu -u
           npm install
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
             token: ${{ secrets.PAT }}
             commit-message: Update dependencies
@@ -180,7 +180,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-node@v3
         with:
           node-version: 16.x
@@ -204,7 +204,7 @@ jobs:
   update-dep:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-java@v2
         with:
           distribution: 'temurin'
@@ -214,7 +214,7 @@ jobs:
       - name: Perform dependency resolution and write new lockfiles
         run: ./gradlew dependencies --write-locks
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
             token: ${{ secrets.PAT }}
             commit-message: Update dependencies
@@ -242,14 +242,14 @@ jobs:
   update-dep:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Update dependencies
         run: |
           cargo install cargo-edit
           cargo update
           cargo upgrade --to-lockfile
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
             token: ${{ secrets.PAT }}
             commit-message: Update dependencies
@@ -277,7 +277,7 @@ jobs:
   updateSwagger:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Get Latest Swagger UI Release
         id: swagger-ui
         run: |
@@ -307,7 +307,7 @@ jobs:
           # Update current release
           echo ${{ steps.swagger-ui.outputs.release_tag }} > swagger-ui.version
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           commit-message: Update swagger-ui to ${{ steps.swagger-ui.outputs.release_tag }}
           title: Update SwaggerUI to ${{ steps.swagger-ui.outputs.release_tag }}
@@ -342,7 +342,7 @@ jobs:
   updateFork:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           repository: fork-owner/repo
       - name: Reset the default branch with upstream changes
@@ -351,7 +351,7 @@ jobs:
           git fetch upstream main:upstream-main
           git reset --hard upstream-main
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.PAT }}
           branch: upstream-changes
@@ -370,7 +370,7 @@ jobs:
   format:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Download website
         run: |
           wget \
@@ -384,7 +384,7 @@ jobs:
             --domains quotes.toscrape.com \
             http://quotes.toscrape.com/
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           commit-message: update local website copy
           title: Automated Updates to Local Website Copy
@@ -466,7 +466,7 @@ jobs:
     if: startsWith(github.head_ref, 'autopep8-patches') == false && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ github.head_ref }}
       - name: autopep8
@@ -481,7 +481,7 @@ jobs:
           echo "branch-name=$branch-name" >> $GITHUB_OUTPUT
       - name: Create Pull Request
         if: steps.autopep8.outputs.exit-code == 2
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           commit-message: autopep8 action fixes
           title: Fixes by autopep8 action
@@ -515,13 +515,13 @@ jobs:
     if: startsWith(github.ref, 'refs/heads/')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       ...
 
   someOtherJob:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       ...
 ```
 
@@ -540,7 +540,7 @@ Note that the step where output variables are defined must have an id.
           echo "pr_title=$pr_title" >> $GITHUB_OUTPUT
           echo "pr_body=$pr_body" >> $GITHUB_OUTPUT
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           title: ${{ steps.vars.outputs.pr_title }}
           body: ${{ steps.vars.outputs.pr_body }}
@@ -566,7 +566,7 @@ The template is rendered using the [render-template](https://github.com/chuhlomi
             bar: that
 
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           body: ${{ steps.template.outputs.result }}
 ```
@@ -622,7 +622,7 @@ For example:
 ```yml
 - name: Create Pull Request
   id: cpr
-  uses: peter-evans/create-pull-request@v7
+  uses: peter-evans/create-pull-request@v8
 
 - name: Show message for created Pull Request
   if: ${{ steps.cpr.outputs.pull-request-url && steps.cpr.outputs.pull-request-operation != 'none' }}

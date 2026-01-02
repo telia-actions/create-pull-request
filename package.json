@@ -1,9 +1,12 @@
 {
   "name": "create-pull-request",
-  "version": "7.0.0",
+  "version": "8.0.0",
   "private": true,
   "description": "Creates a pull request for changes to your repository in the actions workspace",
   "main": "lib/main.js",
+  "engines": {
+    "node": ">=24.4.0"
+  },
   "scripts": {
     "build": "tsc && ncc build",
     "format": "prettier --write '**/*.ts'",
@@ -41,10 +44,10 @@
   },
   "devDependencies": {
     "@types/jest": "^29.5.14",
-    "@types/node": "^18.19.123",
+    "@types/node": "^18.19.130",
     "@typescript-eslint/eslint-plugin": "^7.18.0",
     "@typescript-eslint/parser": "^7.18.0",
-    "@vercel/ncc": "^0.38.3",
+    "@vercel/ncc": "^0.38.4",
     "eslint": "^8.57.1",
     "eslint-import-resolver-typescript": "^3.10.1",
     "eslint-plugin-github": "^4.10.2",
@@ -54,10 +57,10 @@
     "jest": "^29.7.0",
     "jest-circus": "^29.7.0",
     "jest-environment-jsdom": "^29.7.0",
-    "js-yaml": "^4.1.0",
-    "prettier": "^3.6.2",
-    "ts-jest": "^29.4.1",
-    "typescript": "^5.9.2",
-    "undici": "^6.21.3"
+    "js-yaml": "^4.1.1",
+    "prettier": "^3.7.4",
+    "ts-jest": "^29.4.6",
+    "typescript": "^5.9.3",
+    "undici": "^6.22.0"
   }
 }
